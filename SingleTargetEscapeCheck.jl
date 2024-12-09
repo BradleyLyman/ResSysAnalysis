@@ -19,8 +19,9 @@ end
 md"""
 # Escape Checks - Analysis
 
-Escape Checks are performed as a series of Speed Checks. 
-This document will consider each speed check independently.
+Escape Checks are performed as a series of Speed Checks. An escape check 
+completes when a player accumulates three non-consecutive successful 
+Speed Checks. 
 """
 
 # ╔═╡ 4c1ccaf0-d078-4f9a-a135-b85f7c243764
@@ -28,7 +29,7 @@ md"""
 ## Speed Checks
 
 Speed Checks can be targeted or untargeted. Escape Check sequences are 
-always evaluated as untargeted Speed Checks which are evaluated with:
+always evaluated as untargeted Speed Checks which are resolved by:
 
 ```math
 1d10 + DMOD > 1d20
@@ -39,11 +40,11 @@ always evaluated as untargeted Speed Checks which are evaluated with:
 md"""
 ### What Is DMOD?
 
-In this document the term `DMOD` refers to the player's dexterity *modifier*. The 
+`DMOD` refers to the player's dexterity modifier. The 
 dexterity modifier is calculated based on the dexterity attribute according to the
 rules [here](https://themidnightcovenant.shivtr.com/pages/core_attributes). 
 
-The relationship can be described with the piecewise equation:
+The relationship can be described concisely by the piecewise equation:
 
 ```math
 DMOD \equiv f(Dex) = 
@@ -52,6 +53,29 @@ DMOD \equiv f(Dex) =
 2 * \lfloor \frac{Dex - 5}{2} \rfloor & \text{otherwise}
 \end{cases}
 ```
+"""
+
+# ╔═╡ 45e5a3d1-beff-43be-b205-4de73c3425ed
+md"""
+### Speed Check Success Rates
+
+A single speed check is evaluated by rolling `1d10 + DMOD` against `1d20`
+which means there are exactly 200 possible outcomes. The outcomes can be 
+evaluated to derive the probability of success for each possible 
+dexterity attribute value.
+"""
+
+# ╔═╡ cb68bb8f-f390-4662-bada-f46da6f3fd17
+md"""
+## Simulating Escape Checks
+
+On the player's first turn, they roll three Speed Checks and collects any successes.
+On any subsequent turns, the player rolls a number of times equal to three minus 
+their accumulated successes so far. 
+
+For example, if the player rolled one success and two failures on their first turn,
+then they will only roll *two* speed checks on the next turn. This continues until
+the player has accumulated three total successes.
 """
 
 # ╔═╡ 348abbea-7329-4db5-8159-29ef853b0c2d
@@ -72,7 +96,7 @@ attribute value.
 # Returns
 An integer value in the range [-5, 10]
 """
-function modifier(attribute::Int)::Int
+function AttributeModifier(attribute::Int)::Int
 	if attribute <= 7
 		-5 + attribute
 	else 
@@ -83,20 +107,131 @@ end
 # ╔═╡ 55bc201b-ca63-4236-a811-2dbfacf2d76d
 begin 
 	attribute_values = 0:1:15
-	modifier_values = [modifier(attrib) for attrib in attribute_values]
+	modifier_values = [AttributeModifier(attrib) for attrib in attribute_values]
 
 	Plots.plot(
 		attribute_values,
 		modifier_values,
 		line=:stepmid,
 		markershape=:circle,
-		xlims=(-1, 16),
+		xlims=(-0.5, 15.5),
 		xticks=0:1:15,
 		xlabel="Dexterity Attribute",
-		ylims=(-5, 10),
+		ylims=(-5.5, 10.5),
 		yticks=-5:1:10,
 		ylabel="DMOD",
 		legend=false,
+	)
+end
+
+# ╔═╡ a17c4bf4-0782-47e3-a7ec-b8878a30cf49
+"""
+    SpeedCheck(dexterity, d10, d20)
+
+Evaluates the outcome of a single speed check based on a player's 
+dexterity attribute and the relevant dice rolls.
+
+# Arguments 
+* `dexterity`: The player's dexterity attribute.
+* `d10`: The value of the d10 roll.
+* `d20`: The value of the d20 roll.
+"""
+function SpeedCheck(dexterity::Int64, d10::Int64, d20::Int64)::Bool
+	dmod = AttributeModifier(dexterity)
+	if d10 == 10
+		true # crit success
+	elseif d10 == 1 
+		false # crit failure 
+	else 
+		d10 + dmod > d20 
+	end
+end
+
+# ╔═╡ 389ddcf3-f24d-45f3-bf2c-f072d33145a8
+begin
+	function SpeedCheckSuccessRate(dexterity::Int64)::Float64
+		attempts = 0.0
+		successes = 0.0
+		for d10 in 1:10
+			for d20 in 1:20
+				attempts += 1
+				successes += SpeedCheck(dexterity, d10, d20)
+			end
+		end
+		successes / attempts
+	end
+	
+	dex_values = 0:1:15 # the ful dexterity attribute range
+	Plots.plot(
+		dex_values,
+		[SpeedCheckSuccessRate(dex) * 100.0 for dex in dex_values],
+		markershape=:circle,
+		xlims=(-0.5, 15.5),
+		xticks=-0:1:15,
+		xlabel="Dexterity Attribute",
+		ylims=(0, 100),
+		yticks=0:10:100,
+		ylabel="% Rate of Success",
+		legend=false,
+	)
+end
+
+# ╔═╡ 29f65e34-3d04-46a7-9374-97b8286dab37
+begin 
+	function EscapeCheck(dexterity::Int64, total_successes::Int64)::Int64 
+		successful_checks = 0
+		
+		checks_required = max(0, 3 - total_successes)
+		while checks_required > 0
+			if successful_checks >= 3
+				break
+			end
+
+			# roll dice
+			d10 = rand(1:10)
+			d20 = rand(1:20)
+
+			# evaluate the speed check
+			successful_checks += SpeedCheck(dexterity, d10, d20)
+
+			# Apply crit rules
+			
+			if d10 == 10 
+				# A crit success grants an additional success
+				successful_checks += 1 
+			elseif d10 == 1 
+				# A crit failure skips the next roll opportunity
+				checks_required -= 1
+			end
+			
+			checks_required -= 1
+		end
+	
+		successful_checks
+	end
+
+	function SimulateEscape(dexterity::Int64)::Int64
+		total_successes = 0 
+        turns_required = 0 
+
+		while total_successes < 3 
+			total_successes += EscapeCheck(dexterity, total_successes)
+			turns_required += 1
+		end
+
+		turns_required
+	end
+
+	attempts = []
+	for _ in 0:100000
+		push!(attempts, SimulateEscape(0))
+	end
+	
+	Plots.histogram(
+		attempts,
+		bins=0:1:100,
+		normalize=true,
+		ylims=(0, 0.45),
 	)
 end
 
@@ -1298,7 +1433,12 @@ version = "1.4.1+1"
 # ╟─4c1ccaf0-d078-4f9a-a135-b85f7c243764
 # ╟─f3179ff7-7185-40ee-b058-94373ea17034
 # ╟─55bc201b-ca63-4236-a811-2dbfacf2d76d
+# ╟─45e5a3d1-beff-43be-b205-4de73c3425ed
+# ╟─389ddcf3-f24d-45f3-bf2c-f072d33145a8
+# ╟─cb68bb8f-f390-4662-bada-f46da6f3fd17
+# ╠═29f65e34-3d04-46a7-9374-97b8286dab37
 # ╟─348abbea-7329-4db5-8159-29ef853b0c2d
 # ╠═a4ee65a0-2c20-4788-86fa-bd3b23882e97
+# ╠═a17c4bf4-0782-47e3-a7ec-b8878a30cf49
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
