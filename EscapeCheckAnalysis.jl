@@ -1,6 +1,11 @@
 ### A Pluto.jl notebook ###
 # v0.20.3
 
+#> [frontmatter]
+#> title = "Escape Check Analysis"
+#> date = "2024-12-09"
+#> description = "A numerical simulation of the ResSys3 Escape Check Rules."
+
 using Markdown
 using InteractiveUtils
 
@@ -18,9 +23,9 @@ end
 
 # ╔═╡ 212db4d8-34a0-4ea0-8471-6aaf31f06645
 md"""
-# Escape Checks - Analysis
+# ResSys 3.0 Escape Checks - Analysis
 
-Escape Checks are performed as a series of Speed Checks. An escape check 
+[Escape Checks](https://themidnightcovenant.shivtr.com/pages/primary_escape) are performed as a series of Speed Checks. An escape check 
 completes when a player accumulates three non-consecutive successful 
 Speed Checks. 
 """
@@ -51,42 +56,14 @@ The relationship can be described concisely by the piecewise equation:
 DMOD \equiv f(Dex) = 
 \begin{cases}
 -5 + Dex & \text{if } Dex \leq 7, \\\\
-2 * \lfloor \frac{Dex - 5}{2} \rfloor & \text{otherwise}
+2\lfloor \frac{Dex - 5}{2} \rfloor & \text{otherwise}
 \end{cases}
 ```
 """
 
-# ╔═╡ 45e5a3d1-beff-43be-b205-4de73c3425ed
-md"""
-### Speed Check Success Rates
-
-A single speed check is evaluated by rolling `1d10 + DMOD` against `1d20`
-which means there are exactly 200 possible outcomes. The outcomes can be 
-evaluated to derive the probability of success for each possible 
-dexterity attribute value.
-"""
-
-# ╔═╡ cb68bb8f-f390-4662-bada-f46da6f3fd17
-md"""
-## Simulating Escape Checks
-
-On the player's first turn, they roll three Speed Checks and collects any successes.
-On any subsequent turns, the player rolls a number of times equal to three minus 
-their accumulated successes so far. 
-
-For example, if the player rolled one success and two failures on their first turn,
-then they will only roll *two* speed checks on the next turn. This continues until
-the player has accumulated three total successes.
-"""
-
-# ╔═╡ 348abbea-7329-4db5-8159-29ef853b0c2d
-md"""
-## Functions
-"""
-
 # ╔═╡ a4ee65a0-2c20-4788-86fa-bd3b23882e97
 """
-    modifier(attribute)
+    AttributeModifier(attribute)
 
 Computes a ResSys 3 Core Attribute dice modifier based on the raw 
 attribute value.
@@ -113,6 +90,7 @@ begin
 	Plots.plot(
 		attribute_values,
 		modifier_values,
+		title="DMOD Values By Dexterity Attribute",
 		line=:stepmid,
 		markershape=:circle,
 		xlims=(-0.5, 15.5),
@@ -122,8 +100,41 @@ begin
 		yticks=-5:1:10,
 		ylabel="DMOD",
 		legend=false,
+		label="DMOD",
 	)
 end
+
+# ╔═╡ 45e5a3d1-beff-43be-b205-4de73c3425ed
+md"""
+### Speed Check Success Rates
+
+A single speed check is evaluated by rolling `1d10 + DMOD` against `1d20`
+which means there are exactly 200 possible outcomes. The outcomes can be 
+evaluated to derive the probability of success for each possible 
+dexterity attribute value.
+"""
+
+# ╔═╡ 72ec2f02-c505-450b-8cce-102666f68d4c
+aside(md"""
+!!! note "Speed Check Criticals"
+
+    ResSys has special 
+    [rules for critical success and failure](https://themidnightcovenant.shivtr.com/pages/primary_critical). 
+
+    The Speed Check is considered a [Non-Combat Action (200.1-4 H)](https://themidnightcovenant.shivtr.com/pages/general_scene) 
+    because it progresses the narrative but does not directly modify 
+    character stats. As such, the following critical rules apply:
+
+    **Critical Success [203.8-1 A](https://themidnightcovenant.shivtr.com/pages/primary_critical)**
+
+    Rolling a natural ``10`` on a ``1d10`` results in an automatic success, 
+    regardless of the dexterity modifier or ``1d20`` roll.
+
+    **Critical Failure [203.8-1 C](https://themidnightcovenant.shivtr.com/pages/primary_critical)**
+
+    Rolling a natural ``1`` on a ``1d10`` results in an automatic failure,
+    regardless of the dexterity modifier or ``1d20`` roll.
+""", v_offset=-120)
 
 # ╔═╡ a17c4bf4-0782-47e3-a7ec-b8878a30cf49
 """
@@ -166,6 +177,7 @@ begin
 	Plots.plot(
 		dex_values,
 		[SpeedCheckSuccessRate(dex) * 100.0 for dex in dex_values],
+		title="SpeedCheck Success Rate",
 		markershape=:circle,
 		xlims=(-0.5, 15.5),
 		xticks=-0:1:15,
@@ -177,64 +189,156 @@ begin
 	)
 end
 
-# ╔═╡ 29f65e34-3d04-46a7-9374-97b8286dab37
-begin 
-	function EscapeCheck(dexterity::Int64, total_successes::Int64)::Int64 
-		successful_checks = 0
+# ╔═╡ cb68bb8f-f390-4662-bada-f46da6f3fd17
+md"""
+## Single Player Escape Check
+
+On the player's first turn, they roll three Speed Checks and collects any successes.
+On any subsequent turns, the player rolls a number of times equal to three minus 
+their accumulated successes so far. 
+
+For example, if the player rolled one success and two failures on their first turn,
+then they will only roll *two* speed checks on the next turn. This continues until
+the player has accumulated three total successes.
+"""
+
+# ╔═╡ e48be100-042d-4a75-a038-dd405ac1ef91
+"""
+    EscapeCheck(dexterity, total_successes)
+
+Simulates a single turn of a ResSys 3.0 Escape Check by evaluating up to 
+three consecutive untargeted Speed Checks.
+
+# Arguments
+
+- `dexterity`: The player's dexterity attribute. 
+               Values are integers in the range [0, 15]
+- `total_successes`: The total number of successses up to this point. 
+                     On the first turn this is always 0.
+
+# Returns 
+
+An integer representing the number of successes accumulated by the current check.
+Results are in the range [0, 4].
+"""
+function EscapeCheck(dexterity::Int64, total_successes::Int64)::Int64 
+	successful_checks = 0
+	
+	checks_required = max(0, 3 - total_successes)
+	while checks_required > 0
+		if successful_checks >= 3
+			break
+		end
+
+		# roll dice
+		d10 = rand(1:10)
+		d20 = rand(1:20)
+
+		# evaluate the speed check
+		successful_checks += SpeedCheck(dexterity, d10, d20)
+
+		# Apply crit rules
 		
-		checks_required = max(0, 3 - total_successes)
-		while checks_required > 0
-			if successful_checks >= 3
-				break
-			end
-
-			# roll dice
-			d10 = rand(1:10)
-			d20 = rand(1:20)
-
-			# evaluate the speed check
-			successful_checks += SpeedCheck(dexterity, d10, d20)
-
-			# Apply crit rules
-			
-			if d10 == 10 
-				# A crit success grants an additional success
-				successful_checks += 1 
-			elseif d10 == 1 
-				# A crit failure skips the next roll opportunity
-				checks_required -= 1
-			end
-			
+		if d10 == 10 
+			# A crit success grants an additional success
+			successful_checks += 1 
+		elseif d10 == 1 
+			# A crit failure skips the next roll
 			checks_required -= 1
 		end
-	
-		successful_checks
+		
+		checks_required -= 1
 	end
 
-	function SimulateEscape(dexterity::Int64)::Int64
-		total_successes = 0 
-        turns_required = 0 
+	successful_checks
+end
 
-		while total_successes < 3 
-			total_successes += EscapeCheck(dexterity, total_successes)
-			turns_required += 1
-		end
+# ╔═╡ 5ae83e68-05d3-41fb-80c8-663d7d9928ad
+md"""
+### Simulation
 
-		turns_required
+With the `EscapeCheck` function defined, it is now possible to simulate a
+player's full escape attempt. This can be done with the following:
+"""
+
+# ╔═╡ 0e4e8334-7672-460a-b3e1-d28bdfae6355
+"""
+    SimulateSinglePlayerEscape(dexterity)
+
+Performs Escape Checks repeatedly until at least three successes have been
+accumulated. This function does not consider resources spent or turns spent 
+resting.
+
+# Arguments
+
+* `dexterity`: The player's dexterity attribute.
+               Values are integers in the range [0, 15]
+
+# Returns 
+
+The number of *turns* the player required to escape.
+"""
+function SimulateSinglePlayerEscape(dexterity::Int64)::Int64
+	total_successes = 0 
+	turns_required = 0 
+
+	while total_successes < 3 
+		total_successes += EscapeCheck(dexterity, total_successes)
+		turns_required += 1
 	end
 
+	turns_required
+end
+
+# ╔═╡ 7b8fbbcb-03d5-4fdf-be2a-db73e05e5571
+simulated_escape_count = 100_000
+
+# ╔═╡ 348abbea-7329-4db5-8159-29ef853b0c2d
+md"""
+## Appendix: Functions
+"""
+
+# ╔═╡ 29f65e34-3d04-46a7-9374-97b8286dab37
+"""
+    PlotSinglePlayerEscape(dexterity, total_attempts)
+
+Runs many single player escape simulations and plots the results as a histogram.
+
+# Arguments 
+
+* `dexterity`: The player's dexterity attribute.
+               Values are integers in the range [0, 15]
+* `total_attempts`: The number of escape attempts to simulate.
+"""
+function PlotSinglePlayerEscape(dexterity::Int64, total_attempts::Int64) 
 	attempts = []
-	for _ in 0:100000
-		push!(attempts, SimulateEscape(0))
+	for _ in 0:total_attempts
+		push!(attempts, SimulateSinglePlayerEscape(dexterity))
 	end
-	
 	Plots.histogram(
 		attempts,
-		bins=0:1:100,
 		normalize=true,
+		bins=1:1:25,
 		ylims=(0, 0.45),
+		xlabel="Turns Required To Escape",
+		xticks=0:5:100,
+		ylabel="% of Attempts",
+		title="$(total_attempts) Escapes with Dexterity = $(dexterity)",
+		legend=false,
 	)
 end
+
+# ╔═╡ cefa07e2-e7f8-461f-b663-df8481b5e551
+PlotSinglePlayerEscape(0, simulated_escape_count)
+
+# ╔═╡ 2a4b1047-21c9-4da3-84d5-3f1ddc01c5f0
+PlotSinglePlayerEscape(5, simulated_escape_count)
+
+# ╔═╡ cf13024f-73f6-48a9-8001-831f637ff6a9
+PlotSinglePlayerEscape(10, simulated_escape_count)
+
+# ╔═╡ 8a4a2c4f-7e0b-4c09-864d-d2bade02b9f2
+PlotSinglePlayerEscape(15, simulated_escape_count)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1467,12 +1571,21 @@ version = "1.4.1+1"
 # ╟─4c1ccaf0-d078-4f9a-a135-b85f7c243764
 # ╟─f3179ff7-7185-40ee-b058-94373ea17034
 # ╟─55bc201b-ca63-4236-a811-2dbfacf2d76d
+# ╠═a4ee65a0-2c20-4788-86fa-bd3b23882e97
 # ╟─45e5a3d1-beff-43be-b205-4de73c3425ed
+# ╟─72ec2f02-c505-450b-8cce-102666f68d4c
+# ╠═a17c4bf4-0782-47e3-a7ec-b8878a30cf49
 # ╟─389ddcf3-f24d-45f3-bf2c-f072d33145a8
 # ╟─cb68bb8f-f390-4662-bada-f46da6f3fd17
-# ╠═29f65e34-3d04-46a7-9374-97b8286dab37
+# ╠═e48be100-042d-4a75-a038-dd405ac1ef91
+# ╟─5ae83e68-05d3-41fb-80c8-663d7d9928ad
+# ╠═0e4e8334-7672-460a-b3e1-d28bdfae6355
+# ╟─7b8fbbcb-03d5-4fdf-be2a-db73e05e5571
+# ╟─cefa07e2-e7f8-461f-b663-df8481b5e551
+# ╟─2a4b1047-21c9-4da3-84d5-3f1ddc01c5f0
+# ╟─cf13024f-73f6-48a9-8001-831f637ff6a9
+# ╟─8a4a2c4f-7e0b-4c09-864d-d2bade02b9f2
 # ╟─348abbea-7329-4db5-8159-29ef853b0c2d
-# ╠═a4ee65a0-2c20-4788-86fa-bd3b23882e97
-# ╠═a17c4bf4-0782-47e3-a7ec-b8878a30cf49
+# ╠═29f65e34-3d04-46a7-9374-97b8286dab37
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
