@@ -13,6 +13,7 @@ using InteractiveUtils
 begin
 	import PlotlyKaleido, PlotlyBase
 	import Plots
+	import MarkdownLiteral: @mdx
 	using PlutoUI
 	using PlutoTeachingTools
 
@@ -31,7 +32,7 @@ Speed Checks.
 """
 
 # ╔═╡ 4c1ccaf0-d078-4f9a-a135-b85f7c243764
-md"""
+@mdx """
 ## Speed Checks
 
 Speed Checks can be targeted or untargeted. Escape Check sequences are 
@@ -42,8 +43,8 @@ always evaluated as untargeted Speed Checks which are resolved by:
 ```
 """
 
-# ╔═╡ f3179ff7-7185-40ee-b058-94373ea17034
-md"""
+# ╔═╡ b399bb4a-8ef8-4c0d-b7b1-e1083c119cfd
+@mdx """
 ### What Is DMOD?
 
 `DMOD` refers to the player's dexterity modifier. The 
@@ -51,7 +52,10 @@ dexterity modifier is calculated based on the dexterity attribute according to t
 rules [here](https://themidnightcovenant.shivtr.com/pages/core_attributes). 
 
 The relationship can be described concisely by the piecewise equation:
+"""
 
+# ╔═╡ bc3086a6-07d5-41c7-a0db-ee3376e6d977
+md"""
 ```math
 DMOD \equiv f(Dex) = 
 \begin{cases}
@@ -105,7 +109,7 @@ begin
 end
 
 # ╔═╡ 45e5a3d1-beff-43be-b205-4de73c3425ed
-md"""
+@mdx """
 ### Speed Check Success Rates
 
 A single speed check is evaluated by rolling `1d10 + DMOD` against `1d20`
@@ -190,7 +194,7 @@ begin
 end
 
 # ╔═╡ cb68bb8f-f390-4662-bada-f46da6f3fd17
-md"""
+@mdx """
 ## Single Player Escape Check
 
 On the player's first turn, they roll three Speed Checks and collects any successes.
@@ -254,7 +258,7 @@ function EscapeCheck(dexterity::Int64, total_successes::Int64)::Int64
 end
 
 # ╔═╡ 5ae83e68-05d3-41fb-80c8-663d7d9928ad
-md"""
+@mdx """
 ### Simulation
 
 With the `EscapeCheck` function defined, it is now possible to simulate a
@@ -294,7 +298,7 @@ end
 simulated_escape_count = 100_000
 
 # ╔═╡ 348abbea-7329-4db5-8159-29ef853b0c2d
-md"""
+@mdx """
 ## Appendix: Functions
 """
 
@@ -340,9 +344,30 @@ PlotSinglePlayerEscape(10, simulated_escape_count)
 # ╔═╡ 8a4a2c4f-7e0b-4c09-864d-d2bade02b9f2
 PlotSinglePlayerEscape(15, simulated_escape_count)
 
+# ╔═╡ 75248fe0-0fad-48da-8e83-f264c93fdb49
+@mdx """
+## Appendix: Utility
+"""
+
+# ╔═╡ 12bd03ff-8a38-4572-9af0-7fa5856132a3
+html"""
+<style>
+
+.plutoui-toc a.anchor {
+  display: none;
+}
+
+.plutoui-toc span {
+  cursor: pointer;
+}
+
+</style>
+"""
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+MarkdownLiteral = "736d6165-7244-6769-4267-6b50796e6954"
 PlotlyBase = "a03496cd-edff-5a9b-9e67-9cda94a718b5"
 PlotlyKaleido = "f2990250-8cf9-495f-b13a-cce12b45703c"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
@@ -350,6 +375,7 @@ PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 
 [compat]
+MarkdownLiteral = "~0.1.1"
 PlotlyBase = "~0.8.19"
 PlotlyKaleido = "~2.2.5"
 Plots = "~1.40.8"
@@ -363,7 +389,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.7"
 manifest_format = "2.0"
-project_hash = "e32cf9968909c362b6155292b17069316e11d468"
+project_hash = "cc74aac08ca6c86d7fd665dc9f73f92a90e7cc5e"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -440,6 +466,12 @@ git-tree-sha1 = "64e15186f0aa277e174aa81798f7eb8598e0157e"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.13.0"
 
+[[deps.CommonMark]]
+deps = ["Crayons", "PrecompileTools"]
+git-tree-sha1 = "3faae67b8899797592335832fccf4b3c80bb04fa"
+uuid = "a80b9123-70ca-4bc0-993e-6e3bcb318db6"
+version = "0.8.15"
+
 [[deps.Compat]]
 deps = ["TOML", "UUIDs"]
 git-tree-sha1 = "8ae8d32e09f0dcf42a36b90d4e17f5dd2e4c4215"
@@ -465,6 +497,11 @@ version = "2.4.2"
 git-tree-sha1 = "439e35b0b36e2e5881738abc8857bd92ad6ff9a8"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
 version = "0.6.3"
+
+[[deps.Crayons]]
+git-tree-sha1 = "249fe38abf76d48563e2f4556bebd215aa317e15"
+uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
+version = "4.1.1"
 
 [[deps.DataAPI]]
 git-tree-sha1 = "abe83f3a2f1b857aac70ef8b269080af17764bbe"
@@ -855,6 +892,12 @@ version = "0.5.13"
 [[deps.Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
+
+[[deps.MarkdownLiteral]]
+deps = ["CommonMark", "HypertextLiteral"]
+git-tree-sha1 = "0d3fa2dd374934b62ee16a4721fe68c418b92899"
+uuid = "736d6165-7244-6769-4267-6b50796e6954"
+version = "0.1.1"
 
 [[deps.MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "MozillaCACerts_jll", "NetworkOptions", "Random", "Sockets"]
@@ -1566,10 +1609,10 @@ version = "1.4.1+1"
 """
 
 # ╔═╡ Cell order:
-# ╟─84da3362-5b83-48ad-9f9a-cc9b3089d22b
 # ╟─212db4d8-34a0-4ea0-8471-6aaf31f06645
 # ╟─4c1ccaf0-d078-4f9a-a135-b85f7c243764
-# ╟─f3179ff7-7185-40ee-b058-94373ea17034
+# ╟─b399bb4a-8ef8-4c0d-b7b1-e1083c119cfd
+# ╟─bc3086a6-07d5-41c7-a0db-ee3376e6d977
 # ╟─55bc201b-ca63-4236-a811-2dbfacf2d76d
 # ╠═a4ee65a0-2c20-4788-86fa-bd3b23882e97
 # ╟─45e5a3d1-beff-43be-b205-4de73c3425ed
@@ -1587,5 +1630,8 @@ version = "1.4.1+1"
 # ╟─8a4a2c4f-7e0b-4c09-864d-d2bade02b9f2
 # ╟─348abbea-7329-4db5-8159-29ef853b0c2d
 # ╠═29f65e34-3d04-46a7-9374-97b8286dab37
+# ╟─75248fe0-0fad-48da-8e83-f264c93fdb49
+# ╟─84da3362-5b83-48ad-9f9a-cc9b3089d22b
+# ╟─12bd03ff-8a38-4572-9af0-7fa5856132a3
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
