@@ -187,7 +187,7 @@ end
 @mdx """
 ## Single Player Escape Check
 
-On the player's first turn, they roll three Speed Checks and collects any successes.
+On the player's first turn, they roll three Speed Checks and collect any successes.
 On any subsequent turns, the player rolls a number of times equal to three minus 
 their accumulated successes so far. 
 
