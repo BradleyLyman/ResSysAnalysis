@@ -118,28 +118,6 @@ evaluated to derive the probability of success for each possible
 dexterity attribute value.
 """
 
-# ╔═╡ 72ec2f02-c505-450b-8cce-102666f68d4c
-aside(md"""
-!!! note "Speed Check Criticals"
-
-    ResSys has special 
-    [rules for critical success and failure](https://themidnightcovenant.shivtr.com/pages/primary_critical). 
-
-    The Speed Check is considered a [Non-Combat Action (200.1-4 H)](https://themidnightcovenant.shivtr.com/pages/general_scene) 
-    because it progresses the narrative but does not directly modify 
-    character stats. As such, the following critical rules apply:
-
-    **Critical Success [203.8-1 A](https://themidnightcovenant.shivtr.com/pages/primary_critical)**
-
-    Rolling a natural ``10`` on a ``1d10`` results in an automatic success, 
-    regardless of the dexterity modifier or ``1d20`` roll.
-
-    **Critical Failure [203.8-1 C](https://themidnightcovenant.shivtr.com/pages/primary_critical)**
-
-    Rolling a natural ``1`` on a ``1d10`` results in an automatic failure,
-    regardless of the dexterity modifier or ``1d20`` roll.
-""", v_offset=-120)
-
 # ╔═╡ a17c4bf4-0782-47e3-a7ec-b8878a30cf49
 """
     SpeedCheck(dexterity, d10, d20)
@@ -154,14 +132,26 @@ dexterity attribute and the relevant dice rolls.
 """
 function SpeedCheck(dexterity::Int64, d10::Int64, d20::Int64)::Bool
 	dmod = AttributeModifier(dexterity)
-	if d10 == 10
-		true # crit success
-	elseif d10 == 1 
-		false # crit failure 
-	else 
-		d10 + dmod > d20 
-	end
+	d10 + dmod > d20
 end
+
+# ╔═╡ 72ec2f02-c505-450b-8cce-102666f68d4c
+aside(md"""
+!!! note "Speed Check Criticals"
+
+    ResSys has special 
+    [rules for critical success and failure](https://themidnightcovenant.shivtr.com/pages/primary_critical). 
+
+    The Speed Check is considered a [Non-Combat Action (200.1-4 H)](https://themidnightcovenant.shivtr.com/pages/general_scene) 
+    because it progresses the narrative but does not directly modify 
+    character stats. 
+
+    However, the [ResSys 3.0 Calculator](https://docs.google.com/spreadsheets/d/1SARsvqQQ_n3G8ZZ2lXfTWTs2gvs2xIvzLxMB7hPukTM/edit?usp=sharing), 
+    does not evaluate critical success/failure per Speed Check when evaluating 
+    an Escape Check. Instead, an additional dice is used to account for an
+    additional success. As such, the SpeedCheck implementation here does not 
+    have any special logic for handling natural 10s or natural 1s.
+""", v_offset=-635)
 
 # ╔═╡ 389ddcf3-f24d-45f3-bf2c-f072d33145a8
 begin
@@ -206,56 +196,17 @@ then they will only roll *two* speed checks on the next turn. This continues unt
 the player has accumulated three total successes.
 """
 
-# ╔═╡ e48be100-042d-4a75-a038-dd405ac1ef91
-"""
-    EscapeCheck(dexterity, total_successes)
+# ╔═╡ d6c01c67-de8e-432b-92c3-8af17fa4096d
+aside(md"""
+!!! info "Escape Check Criticals"
 
-Simulates a single turn of a ResSys 3.0 Escape Check by evaluating up to 
-three consecutive untargeted Speed Checks.
+    Each escape check can critically succeed independent from the individually
+    performed Speed Checks. 
 
-# Arguments
-
-- `dexterity`: The player's dexterity attribute. 
-               Values are integers in the range [0, 15]
-- `total_successes`: The total number of successses up to this point. 
-                     On the first turn this is always 0.
-
-# Returns 
-
-An integer representing the number of successes accumulated by the current check.
-Results are in the range [0, 4].
-"""
-function EscapeCheck(dexterity::Int64, total_successes::Int64)::Int64 
-	successful_checks = 0
-	
-	checks_required = max(0, 3 - total_successes)
-	while checks_required > 0
-		if successful_checks >= 3
-			break
-		end
-
-		# roll dice
-		d10 = rand(1:10)
-		d20 = rand(1:20)
-
-		# evaluate the speed check
-		successful_checks += SpeedCheck(dexterity, d10, d20)
-
-		# Apply crit rules
-		
-		if d10 == 10 
-			# A crit success grants an additional success
-			successful_checks += 1 
-		elseif d10 == 1 
-			# A crit failure skips the next roll
-			checks_required -= 1
-		end
-		
-		checks_required -= 1
-	end
-
-	successful_checks
-end
+    The Escape Check always rolls an additional 1d10 without any modifiers. 
+    Rolling a natural 10 grants an additional success. There is no peanalty 
+    for rolling a natural 1 on the additional 1d10.
+""", v_offset=35)
 
 # ╔═╡ 5ae83e68-05d3-41fb-80c8-663d7d9928ad
 @mdx """
@@ -264,6 +215,152 @@ end
 With the `EscapeCheck` function defined, it is now possible to simulate a
 player's full escape attempt. This can be done with the following:
 """
+
+# ╔═╡ 7b8fbbcb-03d5-4fdf-be2a-db73e05e5571
+simulated_escape_count = 250_000
+
+# ╔═╡ f7388118-615a-44cb-b921-f2e8df85f81f
+@mdx """
+## Party Extraction Maneuver
+
+A party extraction maneuver can be initiated by a group to attempt a 
+collective escape. ResSys3 describes this in [203.11-4](https://themidnightcovenant.shivtr.com/pages/primary_escape).
+
+Some important details to consider:
+
+- Each player rolls their Escape Checks independently. Once they've accumulated 
+  3 or more successes, they can only accumulate more by critically succeeding the
+  Escape Check (because the check only evaluates `3-total_successes` Speed Checks).
+- The accumulation of successes is done per-character. This means that even if 
+  the whole group has a total of 3 successes, a character with 0 contributions 
+  will still roll three Speed Checks.
+- The whole party escapes when the sum of all accumulated Escape Check successes 
+  is ``2 * PartySize``.
+"""
+
+# ╔═╡ 3cb7dd11-d92a-4d3d-af86-c444500ef5b2
+@mdx """
+### Simulation Implementation
+"""
+
+# ╔═╡ 9262c5d7-4f25-454c-8452-168a7cea0692
+@mdx """
+### Analysis: Party Size And Escape Difficulty
+
+A pattern emerges when experimenting with the Extraction Maneuver: 
+the bigger the group is, the harder it is to extract.
+
+To demonstrate this, Consider a collection of scions that each have 
+a dexterity attribute of 7.
+
+For a group of two, the escape profile looks like this:
+"""
+
+# ╔═╡ 0d413e77-bfd5-40ba-8d84-e7b1db3dac0d
+@mdx """
+Where the party typically requires at least 5 turns to escape.
+
+Now let's repeat the simulation but with increasingly large parties:
+"""
+
+# ╔═╡ bd1a19b7-ab78-4f17-b720-29f5c9b4306d
+@mdx """
+Interestingly, the rule isn't as simple as "large parties take more time". 
+The histograms show the distributions *flatten* as well as shift to the 
+right as the party grows in size. This can be interpreted as:
+
+A large party will perform the Escape Maneuver slower and *less consistently* 
+than a similarly-capable party with fewer members.
+"""
+
+# ╔═╡ 20e7ea71-cc63-45e0-9ddf-12ccd124c90f
+@mdx """
+### Analysis: Extraction Maneuver vs Uncoordinated Escapes
+
+The section above concludes that larger parties are less consistent than 
+similarly-capable parties with fewer members. The natural question is: "is that
+because Escape Maneuvers peanalize large groups?". One way to analyze this 
+is to compare a coordinated Escape Maneuver against a party where each member 
+independently attempts an escape.
+
+To this end, consider the following implementation of an "uncoordinated escape".
+"""
+
+# ╔═╡ ced90a70-8278-4c0d-a154-f776b12be525
+@mdx """
+Now consider a group of four highly capable scions. This group will repeatedly 
+perform Extraction Maneuvers and Uncoordinated Escapes. The required turn 
+distribution for this group looks like the following:
+"""
+
+# ╔═╡ 275c0ece-8868-47cf-a479-58a2bf2c7ada
+@mdx """
+So the Party Extraction is both faster and more consistent than the members 
+of the party each attempting an uncoordinated escape on their own.
+
+This is even more clear when a low-dexterity member is introduced to the 
+party. In an uncoordinated escape, the low-dex member overwhelmingly 
+penalizes the party's ability to escape while the escape maneuver can still 
+be performed in fewer than 15 turns.
+"""
+
+# ╔═╡ 8fb91922-1be4-4dd8-bf38-d37dffa12bd5
+@mdx """
+## Appendices
+"""
+
+# ╔═╡ 55d63212-f938-4595-9f7e-41730955dd22
+@mdx """
+### Appendix: Player
+"""
+
+# ╔═╡ 6e466c69-5ac5-44d2-b74d-e90e5c792c48
+"""
+The Player struct represents the relevant player-specific information.
+
+# Fields 
+
+- `player`: The player's dexterity attribute. 
+               Values are integers in the range [0, 15]
+- `successful_escapes`: The player's accumulated successful escapes.
+"""
+mutable struct Player 
+	const dexterity::Int64
+	successful_escapes::Int64
+	Player(dexterity::Int64) = new(dexterity, 0)
+end
+
+# ╔═╡ e48be100-042d-4a75-a038-dd405ac1ef91
+"""
+    EscapeCheck(player)
+
+Simulates a single turn of a ResSys 3.0 Escape Check.
+
+Each turn can accumulate [0, 4] additional successes for the player.
+"""
+function EscapeCheck!(player::Player)
+	successful_checks = 0
+
+	# Check for critical success and grant a bonus success
+	if rand(1:10) == 10
+		successful_checks += 1
+	end
+
+	# Perform up to 3 independent speed checks based on the player's
+	# dexterity and total successes.
+	checks_required = max(0, 3 - player.successful_escapes)
+	for _ in 1:checks_required
+		# roll dice
+		d10 = rand(1:10)
+		d20 = rand(1:20)
+
+		# evaluate the speed check
+		successful_checks += SpeedCheck(player.dexterity, d10, d20)
+	end
+
+	player.successful_escapes += successful_checks
+	player
+end
 
 # ╔═╡ 0e4e8334-7672-460a-b3e1-d28bdfae6355
 """
@@ -283,23 +380,111 @@ resting.
 The number of *turns* the player required to escape.
 """
 function SimulateSinglePlayerEscape(dexterity::Int64)::Int64
-	total_successes = 0 
+	player = Player(dexterity)
 	turns_required = 0 
 
-	while total_successes < 3 
-		total_successes += EscapeCheck(dexterity, total_successes)
+	while player.successful_escapes < 3 
 		turns_required += 1
+		EscapeCheck!(player)
 	end
 
 	turns_required
 end
 
-# ╔═╡ 7b8fbbcb-03d5-4fdf-be2a-db73e05e5571
-simulated_escape_count = 100_000
+# ╔═╡ 26dccaa8-1c08-4878-8787-0960c299544b
+"""
+    SimulatePartyExtraction(dexterity_scores)
+
+Simulates a party extraction maneuver until the party is able to escape.
+
+For example,
+
+    SimulatePartyExtraction([10, 5, 8, 3])
+
+Will simulate an extraction maneuver with four players with dexterity 
+scores of 10, 5, 8, and 3 respectively.
+
+The simulation assumes that each player attempts an EscapeCheck on their 
+turn every turn until the party extraction succeeds.
+
+# Returns 
+
+The total number of turns required for the Party Extraction Maneuver to 
+succeed.
+"""
+function SimulatePartyExtraction(dexterity_scores::Vector{Int64})::Int64
+	players = Player.(dexterity_scores)
+	turns_required = 0 
+	party_successes = 0
+	current_player = 1
+
+	while party_successes < length(players)*2
+		EscapeCheck!(players[current_player])
+
+		party_successes = sum([player.successful_escapes for player in players])
+		turns_required += 1
+		current_player += 1
+		if current_player > length(players) 
+			current_player = 1
+		end
+	end
+
+	turns_required
+end
+
+# ╔═╡ 5bdf3e82-8537-4843-8060-bb1ec0fbdfa9
+"""
+    SimulateUncoordinatedEscape(dexterity_scores)
+
+Simulates a party where each member indepently attempts to pass an escape check.
+
+For example,
+
+	SimulateUncoordinatedEscape([10, 5, 8, 3])
+
+Will simulate a party with four players with dexterity scores of 10, 5,
+8, and 3 respectively. 
+
+Each player will start an EscapeCheck on their turn. When a player succeeds
+their escape check, they will be skipped for all subsequent turns (as if they've
+left the encounter). This method finishes when all players have independently
+succeeded their escape checks.
+
+# Returns 
+
+The total number of turns required for all members of the party to escape.
+"""
+function SimulateUncoordinatedEscape(dexterity_scores::Vector{Int64})::Int64
+	players = Player.(dexterity_scores)
+	turns_required = 0 
+	current_player = 1
+
+	while length(players) > 0
+		EscapeCheck!(players[current_player])
+        
+		turns_required += 1
+
+		if players[current_player].successful_escapes >= 3
+			# The player escaped, so remove them from the list
+			splice!(players, current_player)
+		else
+			# The player didn't escape, so move to the next player 
+			# in the turn order.
+			current_player += 1
+		end
+
+		if current_player > length(players) 
+			# Restart at the beginning of the list
+			current_player = 1
+		end
+	end
+
+	turns_required
+end
 
 # ╔═╡ 348abbea-7329-4db5-8159-29ef853b0c2d
 @mdx """
-## Appendix: Functions
+### Appendix: Functions
 """
 
 # ╔═╡ 29f65e34-3d04-46a7-9374-97b8286dab37
@@ -326,7 +511,7 @@ function PlotSinglePlayerEscape(dexterity::Int64, total_attempts::Int64)
 		ylims=(0, 0.45),
 		xlabel="Turns Required To Escape",
 		xticks=0:5:100,
-		ylabel="% of Attempts",
+		ylabel="Fraction of Attempts",
 		title="$(total_attempts) Escapes with Dexterity = $(dexterity)",
 		legend=false,
 	)
@@ -344,9 +529,128 @@ PlotSinglePlayerEscape(10, simulated_escape_count)
 # ╔═╡ 8a4a2c4f-7e0b-4c09-864d-d2bade02b9f2
 PlotSinglePlayerEscape(15, simulated_escape_count)
 
+# ╔═╡ abfc8dbb-2fb2-4c1c-a3dc-657672c512bf
+"""
+    PlotPartyExtractionVsUncoordinatedEscape(dexterity_scores, total_attempts)
+
+Simulates many party escape attempts and plots the results as a histogram.
+
+Notably, this method simulates both the party extraction maneuver and an 
+uncoordinated escape. This should hopefully provide a point of comparison for 
+the utility of the party extraction maneuver.
+"""
+function PlotPartyExtractionVsUncoordinatedEscape(
+	dexterity_scores::Vector{Int64}, 
+	total_attempts::Int64
+)
+	extraction_attempts = []
+	uncoordinated_escape_attempts = []
+	for _ in 0:total_attempts 
+		push!(extraction_attempts, SimulatePartyExtraction(dexterity_scores))
+		push!(
+			uncoordinated_escape_attempts, SimulateUncoordinatedEscape(dexterity_scores)
+		)
+	end
+	Plots.histogram(
+		[extraction_attempts, uncoordinated_escape_attempts],
+		labels=["Party Extraction" "Uncoordinated Escape"],
+		normalize=true,
+		bins=1:1:25,
+		ylims=(0, 0.65),
+		xlabel="Turns Required To Escape",
+		xticks=0:5:100,
+		ylabel="Fraction of Attempts",
+		title="$(total_attempts) Attempts",
+		legend=:right,
+	)
+end
+
+# ╔═╡ 1a686531-eae8-47ad-b307-42a71cb55d17
+PlotPartyExtractionVsUncoordinatedEscape(repeat([12], 4), simulated_escape_count)
+
+# ╔═╡ 6d7c594c-cd21-45e6-b730-341811e7cbd6
+PlotPartyExtractionVsUncoordinatedEscape([12, 12, 12, 0], simulated_escape_count)
+
+# ╔═╡ c8f2c26b-3372-49ef-a180-61ec3a2cf522
+"""
+    PlotPartyExtraction(dexterity_scores, total_attempts)
+
+Simulates many party escape attempts and plots the results as a histogram.
+"""
+function PlotPartyExtraction(
+	dexterity_scores::Vector{Int64}, 
+	total_attempts::Int64
+)
+	extraction_attempts = []
+	for _ in 0:total_attempts 
+		push!(extraction_attempts, SimulatePartyExtraction(dexterity_scores))
+	end
+	Plots.histogram(
+		extraction_attempts,
+		labels="Escape Maneuver",
+		normalize=true,
+		bins=1:1:25,
+		ylims=(0, 0.65),
+		xlabel="Turns Required To Escape",
+		xticks=0:5:100,
+		ylabel="Fraction of Attempts",
+		title="$(total_attempts) Attempts",
+		legend=:right,
+	)
+end
+
+# ╔═╡ a174b5f5-2fc7-47f2-9cce-108409d13546
+PlotPartyExtraction(repeat([7], 2), simulated_escape_count)
+
+# ╔═╡ 2a2b8bc3-0156-400f-bc9a-0aecb921efb8
+PlotPartyExtraction(repeat([7], 3), simulated_escape_count)
+
+# ╔═╡ a719aeb3-1fc5-4301-ada6-b69a0f0d9365
+PlotPartyExtraction(repeat([7], 5), simulated_escape_count)
+
+# ╔═╡ e3824d70-b62f-444f-a12c-c4961667a042
+PlotPartyExtraction(repeat([7], 8), simulated_escape_count)
+
+# ╔═╡ b9d28eee-00e0-4c59-90a1-74096afe7eaa
+"""
+    PartyInfo(party)
+
+Displays an info panel to the side describing the party.
+"""
+function PartyInfo(party)
+	aside(
+	Markdown.parse(
+		"""
+		!!! info "$(length(party)) Member Party"
+		
+			With dexterity attributes: [$(join(party, ", "))]
+		"""
+	), 
+	v_offset=50
+)
+end
+
+# ╔═╡ d0036e9e-10ab-4064-be4a-5c2023e816c7
+PartyInfo(repeat([7], 2))
+
+# ╔═╡ 23933a8f-7d6c-4598-8f10-fc345eff73c4
+PartyInfo(repeat([7], 3))
+
+# ╔═╡ 8707aa80-a556-4ed9-9c9f-c1a1bcea5a27
+PartyInfo(repeat([7], 5))
+
+# ╔═╡ ef84433e-713c-45a5-bdeb-6a78f9223401
+PartyInfo(repeat([7], 8))
+
+# ╔═╡ e42f8ec0-2c1e-45ab-bb22-c173a3bbb6a2
+PartyInfo(repeat([12], 4))
+
+# ╔═╡ 97882ab1-9819-4f4f-83c9-bfed2cc0e06e
+PartyInfo([12, 12, 12, 0])
+
 # ╔═╡ 75248fe0-0fad-48da-8e83-f264c93fdb49
 @mdx """
-## Appendix: Utility
+### Appendix: Utility
 """
 
 # ╔═╡ 12bd03ff-8a38-4572-9af0-7fa5856132a3
@@ -1616,10 +1920,11 @@ version = "1.4.1+1"
 # ╟─55bc201b-ca63-4236-a811-2dbfacf2d76d
 # ╠═a4ee65a0-2c20-4788-86fa-bd3b23882e97
 # ╟─45e5a3d1-beff-43be-b205-4de73c3425ed
-# ╟─72ec2f02-c505-450b-8cce-102666f68d4c
 # ╠═a17c4bf4-0782-47e3-a7ec-b8878a30cf49
+# ╟─72ec2f02-c505-450b-8cce-102666f68d4c
 # ╟─389ddcf3-f24d-45f3-bf2c-f072d33145a8
 # ╟─cb68bb8f-f390-4662-bada-f46da6f3fd17
+# ╟─d6c01c67-de8e-432b-92c3-8af17fa4096d
 # ╠═e48be100-042d-4a75-a038-dd405ac1ef91
 # ╟─5ae83e68-05d3-41fb-80c8-663d7d9928ad
 # ╠═0e4e8334-7672-460a-b3e1-d28bdfae6355
@@ -1628,8 +1933,36 @@ version = "1.4.1+1"
 # ╟─2a4b1047-21c9-4da3-84d5-3f1ddc01c5f0
 # ╟─cf13024f-73f6-48a9-8001-831f637ff6a9
 # ╟─8a4a2c4f-7e0b-4c09-864d-d2bade02b9f2
+# ╟─f7388118-615a-44cb-b921-f2e8df85f81f
+# ╟─3cb7dd11-d92a-4d3d-af86-c444500ef5b2
+# ╠═26dccaa8-1c08-4878-8787-0960c299544b
+# ╟─9262c5d7-4f25-454c-8452-168a7cea0692
+# ╟─d0036e9e-10ab-4064-be4a-5c2023e816c7
+# ╟─a174b5f5-2fc7-47f2-9cce-108409d13546
+# ╟─0d413e77-bfd5-40ba-8d84-e7b1db3dac0d
+# ╟─23933a8f-7d6c-4598-8f10-fc345eff73c4
+# ╟─2a2b8bc3-0156-400f-bc9a-0aecb921efb8
+# ╟─8707aa80-a556-4ed9-9c9f-c1a1bcea5a27
+# ╟─a719aeb3-1fc5-4301-ada6-b69a0f0d9365
+# ╟─ef84433e-713c-45a5-bdeb-6a78f9223401
+# ╟─e3824d70-b62f-444f-a12c-c4961667a042
+# ╟─bd1a19b7-ab78-4f17-b720-29f5c9b4306d
+# ╟─20e7ea71-cc63-45e0-9ddf-12ccd124c90f
+# ╠═5bdf3e82-8537-4843-8060-bb1ec0fbdfa9
+# ╟─ced90a70-8278-4c0d-a154-f776b12be525
+# ╟─e42f8ec0-2c1e-45ab-bb22-c173a3bbb6a2
+# ╟─1a686531-eae8-47ad-b307-42a71cb55d17
+# ╟─275c0ece-8868-47cf-a479-58a2bf2c7ada
+# ╟─97882ab1-9819-4f4f-83c9-bfed2cc0e06e
+# ╟─6d7c594c-cd21-45e6-b730-341811e7cbd6
+# ╟─8fb91922-1be4-4dd8-bf38-d37dffa12bd5
+# ╟─55d63212-f938-4595-9f7e-41730955dd22
+# ╠═6e466c69-5ac5-44d2-b74d-e90e5c792c48
 # ╟─348abbea-7329-4db5-8159-29ef853b0c2d
 # ╠═29f65e34-3d04-46a7-9374-97b8286dab37
+# ╠═abfc8dbb-2fb2-4c1c-a3dc-657672c512bf
+# ╠═c8f2c26b-3372-49ef-a180-61ec3a2cf522
+# ╠═b9d28eee-00e0-4c59-90a1-74096afe7eaa
 # ╟─75248fe0-0fad-48da-8e83-f264c93fdb49
 # ╟─84da3362-5b83-48ad-9f9a-cc9b3089d22b
 # ╟─12bd03ff-8a38-4572-9af0-7fa5856132a3
