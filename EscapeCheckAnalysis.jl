@@ -243,22 +243,34 @@ Some important details to consider:
 ### Simulation Implementation
 """
 
+# ╔═╡ dbcef82a-e51e-4f7c-a586-8738953496c3
+@mdx """
+### Analysis: Party Extraction Factor
+
+As a balancing consideration, how does the rounds required for escape change 
+when the factor is 1.5 or 1 instead of 2?
+"""
+
+# ╔═╡ 2cfc5322-1147-4dc3-ba6c-c426cee80916
+@mdx """
+### Analysis: Typical Party Extraction Timing
+
+This section provides a brief survey of "typical" group compositions and the typical number of rounds required to escape.
+"""
+
 # ╔═╡ 9262c5d7-4f25-454c-8452-168a7cea0692
 @mdx """
 ### Analysis: Party Size And Escape Difficulty
 
-A pattern emerges when experimenting with the Extraction Maneuver: 
-the bigger the group is, the harder it is to extract.
-
-To demonstrate this, Consider a collection of scions that each have 
-a dexterity attribute of 7.
+Extraction difficulty is very consistent across group sizes when 
+considering the number of *rounds* for extraction.
 
 For a group of two, the escape profile looks like this:
 """
 
 # ╔═╡ 0d413e77-bfd5-40ba-8d84-e7b1db3dac0d
 @mdx """
-Where the party typically requires at least 5 turns to escape.
+Where the party typically requires at least 5 rounds to escape.
 
 Now let's repeat the simulation but with increasingly large parties:
 """
@@ -301,7 +313,7 @@ of the party each attempting an uncoordinated escape on their own.
 This is even more clear when a low-dexterity member is introduced to the 
 party. In an uncoordinated escape, the low-dex member overwhelmingly 
 penalizes the party's ability to escape while the escape maneuver can still 
-be performed in fewer than 15 turns.
+be performed in fewer than 5 rounds.
 """
 
 # ╔═╡ 8fb91922-1be4-4dd8-bf38-d37dffa12bd5
@@ -392,6 +404,7 @@ function SimulateSinglePlayerEscape(dexterity::Int64)::Int64
 end
 
 # ╔═╡ 26dccaa8-1c08-4878-8787-0960c299544b
+begin
 """
     SimulatePartyExtraction(dexterity_scores)
 
@@ -409,28 +422,77 @@ turn every turn until the party extraction succeeds.
 
 # Returns 
 
-The total number of turns required for the Party Extraction Maneuver to 
+The total number of rounds required for the Party Extraction Maneuver to 
 succeed.
 """
-function SimulatePartyExtraction(dexterity_scores::Vector{Int64})::Int64
+function SimulatePartyExtraction(dexterity_scores::Vector{Int64})::Int64 
+	SimulatePartyExtraction(dexterity_scores, 2.0)
+end
+
+function SimulatePartyExtraction(
+	dexterity_scores::Vector{Int64},
+	extraction_factor::Float64,
+)::Int64
+	player_count = length(dexterity_scores)
 	players = Player.(dexterity_scores)
 	turns_required = 0 
 	party_successes = 0
 	current_player = 1
+	rounds_required = 1
 
-	while party_successes < length(players)*2
-		EscapeCheck!(players[current_player])
+	while party_successes < player_count*extraction_factor
+		if players[current_player].dexterity >= 0
+			EscapeCheck!(players[current_player])
+		end
 
 		party_successes = sum([player.successful_escapes for player in players])
 		turns_required += 1
 		current_player += 1
 		if current_player > length(players) 
 			current_player = 1
+			rounds_required += 1
 		end
 	end
 
-	turns_required
+	# turns_required
+	rounds_required
 end
+end
+
+# ╔═╡ 33424ab4-14b9-4689-b333-d88286bfd569
+"""
+    PlotPartyExtractionFactors(dexterity_scores, extraction_factors)
+
+Simulates many party escape attempts and plots the results as a histogram.
+"""
+function PlotPartyExtractionFactors(
+	dexterity_scores::Vector{Int64},
+	factor::Float64,
+)
+	extraction_attempts = []
+	for _ in 0:simulated_escape_count 
+		push!(
+			extraction_attempts, 
+			SimulatePartyExtraction(dexterity_scores, factor)
+		)
+	end
+	Plots.histogram(
+		extraction_attempts,
+		labels="$(factor) * party",
+		normalize=true,
+		bins=1:1:25,
+		ylims=(0, 0.65),
+		xlabel="Rounds Required To Extract",
+		xticks=0:5:100,
+		ylabel="Fraction of Attempts",
+		title="Party Dex Scores: $(dexterity_scores)",
+		legend=:right,
+		alpha=0.8,
+	)
+end
+
+# ╔═╡ 2b4e0dcb-fbce-418d-b0db-e29d44798acc
+PlotPartyExtractionFactors([0, 0, 0, 0, 0, 0, 0, 12], 2.0)
 
 # ╔═╡ 5bdf3e82-8537-4843-8060-bb1ec0fbdfa9
 """
@@ -452,12 +514,13 @@ succeeded their escape checks.
 
 # Returns 
 
-The total number of turns required for all members of the party to escape.
+The total number of rounds required for all members of the party to escape.
 """
 function SimulateUncoordinatedEscape(dexterity_scores::Vector{Int64})::Int64
 	players = Player.(dexterity_scores)
 	turns_required = 0 
 	current_player = 1
+	rounds_required = 1
 
 	while length(players) > 0
 		EscapeCheck!(players[current_player])
@@ -476,10 +539,12 @@ function SimulateUncoordinatedEscape(dexterity_scores::Vector{Int64})::Int64
 		if current_player > length(players) 
 			# Restart at the beginning of the list
 			current_player = 1
+			rounds_required += 1
 		end
 	end
 
-	turns_required
+	#turns_required
+	rounds_required
 end
 
 # ╔═╡ 348abbea-7329-4db5-8159-29ef853b0c2d
@@ -557,10 +622,10 @@ function PlotPartyExtractionVsUncoordinatedEscape(
 		normalize=true,
 		bins=1:1:25,
 		ylims=(0, 0.65),
-		xlabel="Turns Required To Escape",
+		xlabel="Rounds Required To Extract",
 		xticks=0:5:100,
 		ylabel="Fraction of Attempts",
-		title="$(total_attempts) Attempts",
+		title="Party Dex Scores: $(dexterity_scores)",
 		legend=:right,
 	)
 end
@@ -591,13 +656,22 @@ function PlotPartyExtraction(
 		normalize=true,
 		bins=1:1:25,
 		ylims=(0, 0.65),
-		xlabel="Turns Required To Escape",
+		xlabel="Rounds Required To Extract",
 		xticks=0:5:100,
 		ylabel="Fraction of Attempts",
-		title="$(total_attempts) Attempts",
+		title="Party Dex Scores: $(dexterity_scores)",
 		legend=:right,
 	)
 end
+
+# ╔═╡ 14db3d78-d0af-4ea8-9d4b-255c54ab1828
+PlotPartyExtraction([12, 12, 12, -1], simulated_escape_count)
+
+# ╔═╡ 7fac20c2-85d4-48c0-b424-485540dcd3e2
+PlotPartyExtraction([12, 12, 12, 12], simulated_escape_count)
+
+# ╔═╡ 4d25f360-fd1e-49c8-a3ab-3499029f1fd8
+PlotPartyExtraction([0, 5, 7, 10, 3, -1, -1, 12], simulated_escape_count)
 
 # ╔═╡ a174b5f5-2fc7-47f2-9cce-108409d13546
 PlotPartyExtraction(repeat([7], 2), simulated_escape_count)
@@ -610,43 +684,6 @@ PlotPartyExtraction(repeat([7], 5), simulated_escape_count)
 
 # ╔═╡ e3824d70-b62f-444f-a12c-c4961667a042
 PlotPartyExtraction(repeat([7], 8), simulated_escape_count)
-
-# ╔═╡ b9d28eee-00e0-4c59-90a1-74096afe7eaa
-"""
-    PartyInfo(party)
-
-Displays an info panel to the side describing the party.
-"""
-function PartyInfo(party)
-	aside(
-	Markdown.parse(
-		"""
-		!!! info "$(length(party)) Member Party"
-		
-			With dexterity attributes: [$(join(party, ", "))]
-		"""
-	), 
-	v_offset=50
-)
-end
-
-# ╔═╡ d0036e9e-10ab-4064-be4a-5c2023e816c7
-PartyInfo(repeat([7], 2))
-
-# ╔═╡ 23933a8f-7d6c-4598-8f10-fc345eff73c4
-PartyInfo(repeat([7], 3))
-
-# ╔═╡ 8707aa80-a556-4ed9-9c9f-c1a1bcea5a27
-PartyInfo(repeat([7], 5))
-
-# ╔═╡ ef84433e-713c-45a5-bdeb-6a78f9223401
-PartyInfo(repeat([7], 8))
-
-# ╔═╡ e42f8ec0-2c1e-45ab-bb22-c173a3bbb6a2
-PartyInfo(repeat([12], 4))
-
-# ╔═╡ 97882ab1-9819-4f4f-83c9-bfed2cc0e06e
-PartyInfo([12, 12, 12, 0])
 
 # ╔═╡ 75248fe0-0fad-48da-8e83-f264c93fdb49
 @mdx """
@@ -1936,24 +1973,25 @@ version = "1.4.1+1"
 # ╟─f7388118-615a-44cb-b921-f2e8df85f81f
 # ╟─3cb7dd11-d92a-4d3d-af86-c444500ef5b2
 # ╠═26dccaa8-1c08-4878-8787-0960c299544b
+# ╟─dbcef82a-e51e-4f7c-a586-8738953496c3
+# ╠═33424ab4-14b9-4689-b333-d88286bfd569
+# ╠═2b4e0dcb-fbce-418d-b0db-e29d44798acc
+# ╟─2cfc5322-1147-4dc3-ba6c-c426cee80916
+# ╠═14db3d78-d0af-4ea8-9d4b-255c54ab1828
+# ╠═7fac20c2-85d4-48c0-b424-485540dcd3e2
+# ╠═4d25f360-fd1e-49c8-a3ab-3499029f1fd8
 # ╟─9262c5d7-4f25-454c-8452-168a7cea0692
-# ╟─d0036e9e-10ab-4064-be4a-5c2023e816c7
 # ╟─a174b5f5-2fc7-47f2-9cce-108409d13546
 # ╟─0d413e77-bfd5-40ba-8d84-e7b1db3dac0d
-# ╟─23933a8f-7d6c-4598-8f10-fc345eff73c4
 # ╟─2a2b8bc3-0156-400f-bc9a-0aecb921efb8
-# ╟─8707aa80-a556-4ed9-9c9f-c1a1bcea5a27
 # ╟─a719aeb3-1fc5-4301-ada6-b69a0f0d9365
-# ╟─ef84433e-713c-45a5-bdeb-6a78f9223401
 # ╟─e3824d70-b62f-444f-a12c-c4961667a042
 # ╟─bd1a19b7-ab78-4f17-b720-29f5c9b4306d
 # ╟─20e7ea71-cc63-45e0-9ddf-12ccd124c90f
 # ╠═5bdf3e82-8537-4843-8060-bb1ec0fbdfa9
 # ╟─ced90a70-8278-4c0d-a154-f776b12be525
-# ╟─e42f8ec0-2c1e-45ab-bb22-c173a3bbb6a2
 # ╟─1a686531-eae8-47ad-b307-42a71cb55d17
 # ╟─275c0ece-8868-47cf-a479-58a2bf2c7ada
-# ╟─97882ab1-9819-4f4f-83c9-bfed2cc0e06e
 # ╟─6d7c594c-cd21-45e6-b730-341811e7cbd6
 # ╟─8fb91922-1be4-4dd8-bf38-d37dffa12bd5
 # ╟─55d63212-f938-4595-9f7e-41730955dd22
@@ -1962,7 +2000,6 @@ version = "1.4.1+1"
 # ╠═29f65e34-3d04-46a7-9374-97b8286dab37
 # ╠═abfc8dbb-2fb2-4c1c-a3dc-657672c512bf
 # ╠═c8f2c26b-3372-49ef-a180-61ec3a2cf522
-# ╠═b9d28eee-00e0-4c59-90a1-74096afe7eaa
 # ╟─75248fe0-0fad-48da-8e83-f264c93fdb49
 # ╟─84da3362-5b83-48ad-9f9a-cc9b3089d22b
 # ╟─12bd03ff-8a38-4572-9af0-7fa5856132a3
